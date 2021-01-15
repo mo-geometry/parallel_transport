@@ -32,3 +32,5 @@ non-spherical surfaces. Surface options are:
 
 * Brian O'Sullivan, ”The Hopf Fibration and Hidden Variables in Quantum and Classical Mechanics” (2017)
 [arXiv:1601.02569](https://arxiv.org/abs/1601.02569)
+
+* [Bushings function ](https://github.com/mo-geometry/bushings_function)
