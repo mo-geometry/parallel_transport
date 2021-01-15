@@ -6,7 +6,7 @@
 <img src="https://user-images.githubusercontent.com/62537514/104786849-02414c00-5786-11eb-97bf-d5e0dad92ce4.png" width="linewidth"/>
 </center>
 
-* Python and matlab scripts to animate the moving frames:
+Python and matlab scripts to animate the moving frames:
  - the tangent frame
  - the darboux frame, and
  - the frenet serret frame
