@@ -10,7 +10,8 @@ Python and matlab scripts to animate the moving frames:
  - the tangent frame
  - the darboux frame, and
  - the frenet serret frame
-and parallel transport for the quaternions cited in reference 1).
+ 
+and parallel transporting a tangent vector for the quaternions cited in reference 1).
 
 Also animated are:
  - the parallel transport of a 3-vector, and
