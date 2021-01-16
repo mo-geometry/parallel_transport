@@ -1,10 +1,11 @@
 # Moving frames and parallel transport
- 
-### Surfaces
 
+ 
 <center>
-<img src="https://user-images.githubusercontent.com/62537514/104786849-02414c00-5786-11eb-97bf-d5e0dad92ce4.png" width="linewidth"/>
+<img src="https://raw.githubusercontent.com/mo-geometry/parallel_transport/main/geometric_phase.gif" width="linewidth"/>
 </center>
+
+### Parallel transport and the geometric phase
 
 Python and matlab scripts to animate the moving frames:
  - the tangent frame
@@ -22,10 +23,10 @@ non-spherical surfaces. Surface options are:
  - the 2-sphere, and
  - bushings surfaces of revolution
 
-### Parallel transport and the geometric phase
- 
+### Surfaces
+
 <center>
-<img src="https://raw.githubusercontent.com/mo-geometry/parallel_transport/main/geometric_phase.gif" width="linewidth"/>
+<img src="https://user-images.githubusercontent.com/62537514/104786849-02414c00-5786-11eb-97bf-d5e0dad92ce4.png" width="linewidth"/>
 </center>
 
 ### References
