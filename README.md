@@ -2,7 +2,7 @@
 
  
 <center>
-<img src="https://raw.githubusercontent.com/mo-geometry/parallel_transport/main/geometric_phase.gif" width="linewidth"/>
+<img src="https://raw.githubusercontent.com/mo-geometry/parallel_transport/main/python/geometric_phase.gif" width="linewidth"/>
 </center>
 
 ### Parallel transport and the geometric phase
