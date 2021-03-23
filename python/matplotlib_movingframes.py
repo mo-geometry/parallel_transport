@@ -12,13 +12,20 @@ def randomColormap(choice=False, colorcode=False, intense=False, pattern=False):
     if np.any(options) is not True:
         options[random.choice([0, 1, 2, 3])] = True
     if options[0]:      # choice
-        x=['gist_earth', 'gist_yarg', 'gist_gray', 'ocean', 'cubehelix', 'binary',  'gray', 'bone', 'pink', 'spring', 'summer', 'autumn', 'winter', 'cool', 'Wistia', 'hot', 'afmhot', 'gist_heat', 'copper','Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'viridis', 'plasma', 'inferno', 'magma', 'Spectral', 'coolwarm', 'seismic']
+        x=['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds', 'pink', 'gray',
+           'gist_earth', 'gist_yarg', 'gist_gray', 'gist_heat',  'afmhot', 'ocean',
+           'cubehelix', 'binary', 'bone', 'copper', 'viridis', 'spring', 'summer',
+           'autumn', 'winter', 'cool', 'coolwarm', 'hot', 'plasma', 'inferno',
+           'magma', 'seismic', 'Wistia', 'Spectral']
     elif options[1]:    # colorcode
-        x=['PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'YlOrBr', 'YlOrRd', 'OrRd', 'PuRd', 'RdPu', 'BuPu', 'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn', ]
+        x=['PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'YlOrBr', 'YlOrRd',
+           'OrRd', 'PuRd', 'RdPu', 'BuPu', 'GnBu', 'PuBu', 'YlGnBu', 'PuBuGn', 'BuGn', 'YlGn', ]
     elif options[2]:    # intense
-        x=['gist_ncar', 'gist_rainbow', 'gist_stern', 'nipy_spectral', 'hsv', 'bwr', 'jet', 'rainbow', 'brg', 'terrain', 'gnuplot', 'gnuplot2', 'CMRmap',]
+        x=['gist_ncar', 'gist_rainbow', 'gist_stern', 'nipy_spectral', 'hsv', 'bwr',
+           'jet', 'rainbow', 'brg', 'terrain', 'gnuplot', 'gnuplot2', 'CMRmap',]
     else: # options[3]: pattern
-        x=['Pastel1', 'Pastel2', 'Dark2', 'Accent', 'Set1', 'Set2', 'Set3', 'flag', 'Paired', 'prism', 'tab10', 'tab20', 'tab20b', 'tab20c',]
+        x=['Pastel1', 'Pastel2', 'Dark2', 'Accent', 'Set1', 'Set2', 'Set3',
+           'flag', 'Paired', 'prism', 'tab10', 'tab20', 'tab20b', 'tab20c',]
     return random.choice(x)
 
 
@@ -100,17 +107,17 @@ class Figure:
       path = obj.R[::-1, :].T
       plt.ion()
       # declare figure
-      fig = plt.figure('unitary: ' + self.obj.U_label, figsize=(16.8, 9.2)) # , figsize=(5, 3)
+      fig = plt.figure('unitary: ' + self.obj.U_label, figsize=(16.8, 9.2)) # 
       # SUBPLOT (3,3,1): global phase
       ax1 = fig.add_subplot(333)
-      ax1.set_title('Global phase (units: \u03C0)')
+      ax1.set_title('Global phase \u03C9 (units: \u03C0)')
       dim=args.global_grid_size
       θ, φ = np.meshgrid(np.linspace(0, 1, dim[0]), np.linspace(0, 2, dim[1]))
       plt.pcolormesh(φ, θ, np.round(obj.global_grid).astype('int16'))
       ax1.set_aspect('equal')
       plt.colorbar(orientation='vertical') # ,shrink=0.5
-      ax1.set_ylabel("θ")
-      ax1.set_xlabel("φ")
+      ax1.set_ylabel("θ\u2080")
+      ax1.set_xlabel("φ\u2080")
       ax1.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
       ax1.set_xticks([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0])
       ax1.set_yticklabels(["0", " ", "0.5", " ", "1.0"])
@@ -118,29 +125,37 @@ class Figure:
       ax1.plot(self.obj.φ0 / np.pi, self.obj.θ0 / np.pi, 'red', marker="o", markersize=3)
       # SUBPLOT (3,3,6):  S1 fibre bundle
       ax2 = fig.add_subplot(336)
-      ax2.set_title('S1 fibre bundle') # : global = geometric + dynmaic
+      ax2.set_title('S¹ fibre bundle: \u03C9 = \u03B3 + \u03BE') # : global = geometric + dynmaic
       ax2.set_ylabel("\u03C0 radians")
       ax2.set_xlabel("t")
       ax2.set_xticks([0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2.0])
       ax2.set_xticklabels(["0", " ", "0.5", " ", "1", " ", "1.5", " ", "2.0"])
       # global
-      ax2.plot(obj.t / np.pi, obj.ω / np.pi, 'green', linewidth=4, label='global')
+      ax2.plot(obj.t / np.pi, obj.ω / np.pi, 'green', linewidth=4, label='\u03C9(t) global')
       f2a = ax2.plot(obj.t[0] / np.pi, obj.ω[0] / np.pi, 'green', marker="o", markersize=10)
       ax2.plot(obj.t / np.pi, obj.ξ / np.pi + obj.γ / np.pi, 'black', linestyle='dotted', linewidth=1)
-      # dynamic
-      ax2.plot(obj.t / np.pi, obj.ξ / np.pi, 'orange', linewidth=2, label='dynamic')
-      f2c = ax2.plot(obj.t[0] / np.pi, obj.ξ[0] / np.pi, 'orange', marker="o", markersize=7)
       # geometric
-      ax2.plot(obj.t / np.pi, obj.γ / np.pi, 'gold', linewidth=2, label='geometric')
+      ax2.plot(obj.t / np.pi, obj.γ / np.pi, 'gold', linewidth=2, label='\u03B3(t) geometric')
       f2b = ax2.plot(obj.t[0] / np.pi, obj.γ[0] / np.pi, 'gold', marker="o", markersize=7)
+      # dynamic
+      ax2.plot(obj.t / np.pi, obj.ξ / np.pi, 'orange', linewidth=2, label='\u03BE(t) dynamic')
+      f2c = ax2.plot(obj.t[0] / np.pi, obj.ξ[0] / np.pi, 'orange', marker="o", markersize=7)
+      ax2.plot(obj.t / np.pi, obj.γ / np.pi, 'gold', linewidth=2)
       ax2.legend()
       # SUBPLOT (3,3,9): mobius band
       ax3 = fig.add_subplot(339, projection='3d')
       ax3.plot_trisurf(self.obj.mobius[0], self.obj.mobius[1], self.obj.mobius[2],
                        triangles=obj.mobius[3].triangles, linewidth=0.2, cmap='copper', antialiased=True)
-      ax3.set_ylabel("y")
-      ax3.set_xlabel("x")
-      ax3.set_zlabel("z")
+      # ax3.set_ylabel("y")
+      # ax3.set_xlabel("x")
+      ax3.set_xticks([-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
+      ax3.set_xticklabels(["-1.0", " ", "-0.5", " ", "0", " ", "0.5", " ", "1.0"])
+      ax3.set_yticks([-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
+      ax3.set_yticklabels(["-1.0", " ", "-0.5", " ", "0", " ", "0.5", " ", "1.0"])
+      ax3.set_zticks([-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0])
+      ax3.set_zticklabels(["-1.0", " ", "-0.5", " ", "0", " ", "0.5", " ", "1.0"])
+      ax3.set_zlim(-1, 1)
+      ax3.set_title('                                            \u03C9(t)')
       arrow = obj.mobius[4]
       f3a = ax3.plot(arrow[0, :, 0], arrow[1, :, 0], arrow[2, :, 0], 'black', alpha=0.95, linewidth=3)
       f3b = ax3.plot([], [], [], 'orange', marker="o", markersize=5)
@@ -197,7 +212,7 @@ class Figure:
       str3 = '\nsurface: ' + obj.surface.shape
       # initial state data
       str4 = '\nunitary: ' + obj.U_label
-      str5 = '\ninitial state: \n (θ0, φ0) = (%.1f, %.1f)' % ((obj.θ0 * 180 / np.pi), (obj.φ0 * 180 / np.pi))
+      str5 = '\ninitial state: \n (θ\u2080, φ\u2080) = (%.1f°, %.1f°)' % ((obj.θ0 * 180 / np.pi), (obj.φ0 * 180 / np.pi))
       text_string = [str0, str1, str2, str3, str4, str5]
       fig_info = ax.text2D(0.75, 0.15, text_string,
                            bbox={'facecolor': 'w', 'alpha': 0.75, 'pad': 5},
@@ -213,7 +228,7 @@ class Figure:
 
   # update the moving frame, path, and viewpoint
   def update_figure(self, frame_num, args,
-                    elev_init=12, view_rotate=35):
+                    elev_init=12, view_rotate=35, idx = 0):
       self.update_global_figure(frame_num, args)
       obj = self.obj  # shorthand
       path = obj.R[::-1, :].T
@@ -224,19 +239,18 @@ class Figure:
       # update flages on first index
       if args.moving_frame == 'TANGENT':
           cVector, mFrame = obj.pt_tangent[frame_num, :], obj.tangent[:, ::-1, frame_num]
-          axis_colours = [np.array([0.0, 0.5, 0.9]), np.array([0.0, 0.5, 0.9]), col]
       elif args.moving_frame == 'DARBOUX':
           cVector, mFrame = obj.pt_darboux[frame_num, :], obj.darboux[:, ::-1, frame_num]
-          axis_colours = [np.array([0.0, 0.5, 0.9]), np.array([0.0, 0.5, 0.9]), col]
       elif args.moving_frame == 'FRENET SERRET':
           cVector, mFrame = obj.pt_frenet[frame_num, :], obj.frenet[:, ::-1, frame_num]
-          axis_colours = [col, np.array([0.0, 0.5, 0.9]), np.array([0.0, 0.5, 0.9])]
+          mFrame = mFrame[::-1,:]
       else: # 'GEOMETRIC PHASE'
           cVector, mFrame = obj.pt_tan_plane_vec[frame_num, :], obj.tangent[:, ::-1, frame_num]
           mFrame[2, :] = cVector[0] * mFrame[0, :] + cVector[1] * mFrame[1, :]
           axis_colours = [np.array([0.0, 0.5, 0.9]), np.array([0.0, 0.5, 0.9]), col]
           args.show_pt_vector = False
           cVector = np.array([cVector[0], cVector[1], 0.0])
+      axis_colours = [np.array([0.0, 0.5, 0.9]), np.array([0.0, 0.5, 0.9]), col]
       # current view point: rotate current vector by args.view_rotate degrees
       if args.tracking is True:
           view_point = np.matmul(self.rodrigues([0, 0, 1], view_rotate * np.pi / 180), path[frame_num, :].reshape(3, 1))
@@ -248,7 +262,6 @@ class Figure:
       # alpha gradients for image foreground & background
       alpha_grads = self.frontBack(path, args, current_vector=view_point)
       # update 2-sphere path
-      idx = 0
       for pt in self.aXes[1]:
           idx = idx + 1
           pt[0].set_data(path[idx - 1:idx + 1, 0], path[idx - 1:idx + 1, 1])
@@ -268,14 +281,14 @@ class Figure:
       # moving frame
       aXs = self.plotFrame(cVector, mFrame, path[frame_num, :],
                            length=0.2 * np.max(np.sqrt(np.sum(path ** 2,axis=1))))
-      for idx in range(3):
-          self.aXes[idx + 2].set_data(aXs[idx][:, 0], aXs[idx][:, 1])
-          self.aXes[idx + 2].set_3d_properties(aXs[idx][:, 2])
-          self.aXes[idx + 2].set_color(axis_colours[idx])
-          self.aXes[idx + 2].set_alpha(0.9)
+      for k in range(3):
+          self.aXes[k + 2].set_data(aXs[k][:, 0], aXs[k][:, 1])
+          self.aXes[k + 2].set_3d_properties(aXs[k][:, 2])
+          self.aXes[k + 2].set_color(axis_colours[k])
+          self.aXes[k + 2].set_alpha(0.9)
           if args.tracking is not True:
               if np.sum(np.ravel(view_point) * path[frame_num, :]) < 0:
-                  self.aXes[idx + 2].set_alpha(0.35)
+                  self.aXes[k + 2].set_alpha(0.35)
       # parallel transport 3-vector
       if args.show_pt_vector:
           # update text box info
@@ -291,7 +304,6 @@ class Figure:
           if np.sqrt(np.sum(aXs[-1][-1, :] ** 2)) >= 1:
               self.aXes[5].set_alpha(0.85)
           else:
-              # self.aXes[idx + 2].set_alpha(0.85 * (np.sum(aXs[idx][-1, :] ** 2)))
               self.aXes[5].set_alpha(0.85)
           if args.tracking is not True:
               if np.sum(np.ravel(view_point) * path[frame_num, :]) < 0:
@@ -308,9 +320,9 @@ class Figure:
           azim = azim_init
       self.aXes[7].view_init(elev=elev_init, azim=azim + view_rotate)
       plt.pause(1e-3)
-      self.drawProgressBar(frame_num / args.display_frames)
+      self.drawProgressBar((frame_num+1) / args.display_frames)
       if args.save_frames_as_png:
-          plt.savefig('image' + repr(frame_num + 100) + '.png')
+          plt.savefig('frames/image' + repr(frame_num+416) + '.png')
 
 
   # Update subplots (3,3,6) and (3,3,9): S1 fibre bundle and mobius band

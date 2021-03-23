@@ -29,26 +29,26 @@ from matplotlib_movingframes import *
 parser = argparse.ArgumentParser(description='Moving frames and parallel transport')
 # save frames
 parser.add_argument('--save_frames_as_png', default=False)
-# general arguments
-parser.add_argument('--moving_frame', default='random',
-                    choices=['TANGENT', 'DARBOUX', 'FRENET SERRET', 'GEOMETRIC PHASE', 'random'])
-parser.add_argument('--select_unitary', default='random',
-                    choices=['random', 'equation (27)', 'equation (28)', 'equation (29)', 'equation (30)'])
+parser.add_argument('--display_frames', default=2**7)
+parser.add_argument('--sphere', default=True)
 # integration accuracy
 parser.add_argument('--time_resolution', default=2**14) # [minimum = 2 ** 12]
-# display options
-parser.add_argument('--tracking', default=True)
-parser.add_argument('--show_pt_vector', default=False)
-parser.add_argument('--global_grid_size', default=(2**7, 2**7))
-parser.add_argument('--display_frames', default=2**8)
 # bushings surface
-parser.add_argument('--sphere', default=True)
 parser.add_argument('--eta', default=5.0)
 parser.add_argument('--Lambda', default=11)
 parser.add_argument('--nF', default=23)
+# general arguments
+parser.add_argument('--moving_frame', default='random',
+                    choices=['random', 'TANGENT', 'DARBOUX', 'FRENET SERRET', 'GEOMETRIC PHASE'])
+parser.add_argument('--select_unitary', default='random',
+                    choices=['random', 'equation (27)', 'equation (28)', 'equation (29)', 'equation (30)', 'x_axis', 'y_axis', 'z_axis'])
+# display options
+parser.add_argument('--tracking', default=True)
+parser.add_argument('--show_pt_vector', default=True)
+parser.add_argument('--global_grid_size', default=(2**7, 2**7))
 # colormap
-parser.add_argument('--colormap', default=randomColormap(choice=True),
-                    choices=[randomColormap(choice=True,colorcode=True, intense=True, pattern=True)])
+parser.add_argument('--colormap', default=randomColormap(colorcode=True),
+                    choices=[randomColormap(choice=False, colorcode=False, intense=False, pattern=False)])
 args = parser.parse_args()
 
 # MAIN #################################################################################################################
@@ -57,7 +57,7 @@ args = parser.parse_args()
 spinor = Spinor(args)
 
 # 2) plotting
-fig = Figure(Plot(spinor, args), args)
+fig = Figure(Plot(spinor, args)  , args)
 
 # update figure
 for idx in range(args.display_frames):

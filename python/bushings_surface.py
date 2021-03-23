@@ -26,7 +26,7 @@ class Bushings:
           shape = 'bushings cigar' + '\n (η, λ, nF) = ( %1.1f, %2d, %2d).' % (η, λ, nF)
       else:
           r, drdθ, d2rdθ2 = np.ones(θ.shape), np.zeros(θ.shape), np.zeros(θ.shape)
-          shape = 'S2 sphere'
+          shape = 'S² sphere'
           return r, drdθ, d2rdθ2, shape
       # summation term, first and second derivatives
       G, dG, d2G = self.summation_terms(α, β, dαdθ, dβdθ, d2αdθ2, d2βdθ2, λ, nF)
@@ -91,3 +91,6 @@ def delunay_triangulation(r, θ, φ):
     z = np.ravel(r * np.cos(θ))
     # delunay triangulation
     return x, y, z, Triangulation(np.ravel(θ), np.ravel(φ))
+
+
+

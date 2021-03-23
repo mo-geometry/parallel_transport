@@ -10,7 +10,8 @@ class Spinor:
   def __init__(self, args):
       # 1) initialize
       self.t = np.linspace(0, 2 * np.pi, args.time_resolution)  # time vector
-      self.θ0, self.φ0, dt = np.pi * np.random.rand(1), 2 * np.random.rand(1) * np.pi, self.t[1] - self.t[0] # initial state
+      self.θ0, self.φ0, dt = np.pi * np.random.rand(1), 2 * np.pi * np.random.rand(1), self.t[1] - self.t[0] # initial state
+      # self.θ0, self.φ0, dt = np.array([np.pi*(129.5/180)]), np.array([2*np.pi*(348.9/360)]), self.t[1] - self.t[0] # initial state
       self.I, self.i, self.j, self.k = self.cayley(args)               # cayley matrices
       # 2) unitary - quaternion - rotor - surface - moving frame
       self.U, self.U_label, cigar, pancake, args = self.select_unitary(args)
@@ -133,7 +134,7 @@ class Spinor:
       # binormal vector: eb = et x ea
       eb = np.cross(ev.T, ea.T).T
       ################
-      # TANGENT FRAME: [azimuthal, polar, surface-normal]
+      # TANGENT FRAME: [azimuthal, polar, surface normal]
       tangent[0, :, :] = eφ
       tangent[1, :, :] = eθ
       tangent[2, :, :] = en
@@ -150,7 +151,7 @@ class Spinor:
       return tangent, darboux, frenet
 
 
-  def parallel_transport(self, args, method="integrate"):
+  def parallel_transport(self, args, integrate=True):
       # initialize parallel transport vectors
       pt_tangent = np.zeros((args.time_resolution, 3))
       pt_darboux = np.zeros((args.time_resolution, 3))
@@ -167,7 +168,7 @@ class Spinor:
       pt_frenet[0, :] = np.matmul(self.frenet[:, :, 0], init_vec)
       pt_tan_plane_vec[0, :] = tangent_vec
       # resolve vector coefficients
-      if method is "integrate" or args.moving_frame is "GEOMETRIC PHASE":  # integrate
+      if integrate is True or args.moving_frame is "GEOMETRIC PHASE":  # integrate
           # time step
           dt = self.t[1] - self.t[0]
           # hamiltonians: differential basis
@@ -182,7 +183,7 @@ class Spinor:
               pt_darboux[idx, :] = np.matmul(darboux_matrix[:, :, idx], pt_darboux[idx - 1, :]).T
               pt_frenet[idx, :] = np.matmul(frenet_matrix[:, :, idx], pt_frenet[idx - 1, :]).T
               pt_tan_plane_vec[idx, :] = np.matmul(geometric_matrix[:, :, idx], tangent_vec).T
-      elif method is "projection":  # projection
+      else:  # projection
           for idx in range(1, args.time_resolution):
               # fill pt vectors
               pt_tangent[idx, :] = np.matmul(np.matmul(self.tangent[:, :, idx],
@@ -240,15 +241,15 @@ class Spinor:
       # delaunay
       x = (1 + 0.25 * p2 * np.cos(ω2 / 2)) * np.cos(t2)
       y = (1 + 0.25 * p2 * np.cos(ω2 / 2)) * np.sin(t2)
-      z = 0.25 * p2 * np.sin(ω2 / 2)
+      z = p2 * np.sin(ω2 / 2)
       tri = Triangulation(np.ravel(t2), np.ravel(p2))
       # MOBIUS arrow
       arrow_start = np.array([(1 + 0.25 * p1[0] * np.cos(ω1 / 2)) * np.cos(t1),
                               (1 + 0.25 * p1[0] * np.cos(ω1 / 2)) * np.sin(t1),
-                              0.25 * p1[0] * np.sin(ω1 / 2)])
+                              p1[0] * np.sin(ω1 / 2)])
       arrow_end = np.array([(1 + 0.25 * p1[-1] * np.cos(ω1 / 2)) * np.cos(t1),
                             (1 + 0.25 * p1[-1] * np.cos(ω1 / 2)) * np.sin(t1),
-                            0.25 * p1[-1] * np.sin(ω1 / 2)])
+                            p1[-1] * np.sin(ω1 / 2)])
       t_full = np.linspace(0, 2 * np.pi, args.display_frames)
       t_part = np.linspace(0, 2 * np.pi, n_pts)
       start_x = np.interp(t_full, t_part, arrow_start[0, :])
@@ -272,6 +273,7 @@ class Spinor:
           x = ['equation (27)', 'equation (28)', 'equation (29)', 'equation (30)']
           U_label = random.choice(x)
       else: U_label = args.select_unitary
+
       if U_label == 'equation (27)':
           U = np.matmul(self.expmatrix(-self.t, self.i),
                         np.matmul(self.expmatrix(self.t / 2, self.k), self.expmatrix(self.t, self.i)))
@@ -284,9 +286,15 @@ class Spinor:
                                                                             np.matmul(self.expmatrix(-self.t, self.j),
                                                                                       self.expmatrix(-self.t,
                                                                                                      self.i)))))
-      else: # U_label == 'equation (30)':
+      elif U_label == 'x_axis':
+          U = self.expmatrix(-self.t/2, self.i)
+      elif U_label == 'y_axis':
+          U = self.expmatrix(-self.t/2, self.j)
+      elif U_label == 'z_axis':
+          U = self.expmatrix(-self.t/2, self.k)
+      else:  # U_label == 'equation (30)':
           U = np.matmul(self.expmatrix(self.t / 2, self.i), self.expmatrix(self.t / 2, self.j))
-      return U, U_label, cigar, pancake, args
+      return U, U_label, cigar, pancake, args #np.swapaxes(U,1,2)
 
 
   @staticmethod
