@@ -26,7 +26,7 @@ non-spherical surfaces. Surface options are:
 ### Surfaces
 
 <center>
-<img src="https://user-images.githubusercontent.com/62537514/104786849-02414c00-5786-11eb-97bf-d5e0dad92ce4.png" width="linewidth"/>
+<img src="https://user-images.githubusercontent.com/62537514/112155210-fd14d900-8bdc-11eb-9ed7-e515431731e1.png" width="linewidth"/>
 </center>
 
 ### References
