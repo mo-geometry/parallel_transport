@@ -27,28 +27,34 @@ from matplotlib_movingframes import *
 
 # ARGUMENTS ############################################################################################################
 parser = argparse.ArgumentParser(description='Moving frames and parallel transport')
-# save frames
-parser.add_argument('--save_frames_as_png', default=False)
-parser.add_argument('--display_frames', default=2**7)
+# surface options & intial state
 parser.add_argument('--sphere', default=True)
-# integration accuracy
-parser.add_argument('--time_resolution', default=2**14) # [minimum = 2 ** 12]
-# bushings surface
-parser.add_argument('--eta', default=5.0)
-parser.add_argument('--Lambda', default=11)
-parser.add_argument('--nF', default=23)
+parser.add_argument('--spinor_initial_state_deg', default=None,
+                    choices=[None, (26.1,139.9,0.0)])
+parser.add_argument('--projection', default='i', choices=['random', 'i', 'j', 'k'])
 # general arguments
 parser.add_argument('--moving_frame', default='random',
                     choices=['random', 'TANGENT', 'DARBOUX', 'FRENET SERRET', 'GEOMETRIC PHASE'])
 parser.add_argument('--select_unitary', default='random',
-                    choices=['random', 'equation (27)', 'equation (28)', 'equation (29)', 'equation (30)', 'x_axis', 'y_axis', 'z_axis'])
+                    choices=['random', 'equation (27)', 'equation (28)', 'equation (29)', 'equation (30)',
+                             'x_axis', 'y_axis', 'z_axis'])
+parser.add_argument('--heuristic_dynamic_phase', default=True) # apply equation (C.13)
+parser.add_argument('--display_frames', default=2**7)
+parser.add_argument('--global_grid_size', default=(2**7, 2**7))
 # display options
 parser.add_argument('--tracking', default=True)
-parser.add_argument('--show_pt_vector', default=True)
-parser.add_argument('--global_grid_size', default=(2**7, 2**7))
+parser.add_argument('--show_pt_vector', default=False)
+# bushings surface
+parser.add_argument('--eta', default=5.0)
+parser.add_argument('--Lambda', default=11)
+parser.add_argument('--nF', default=23)
 # colormap
-parser.add_argument('--colormap', default=randomColormap(colorcode=True),
+parser.add_argument('--colormap', default=randomColormap(),
                     choices=[randomColormap(choice=False, colorcode=False, intense=False, pattern=False)])
+# integration accuracy [minimum = 2 ** 12]
+parser.add_argument('--time_resolution', default=2**16)
+# save figures
+parser.add_argument('--save_frames_as_png', default=False)
 args = parser.parse_args()
 
 # MAIN #################################################################################################################

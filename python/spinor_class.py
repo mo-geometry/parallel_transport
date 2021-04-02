@@ -9,25 +9,117 @@ import random
 class Spinor:
   def __init__(self, args):
       # 1) initialize
-      self.t = np.linspace(0, 2 * np.pi, args.time_resolution)  # time vector
-      self.θ0, self.φ0, dt = np.pi * np.random.rand(1), 2 * np.pi * np.random.rand(1), self.t[1] - self.t[0] # initial state
-      # self.θ0, self.φ0, dt = np.array([np.pi*(129.5/180)]), np.array([2*np.pi*(348.9/360)]), self.t[1] - self.t[0] # initial state
-      self.I, self.i, self.j, self.k = self.cayley(args)               # cayley matrices
-      # 2) unitary - quaternion - rotor - surface - moving frame
+      self.t = np.linspace(0, 2 * np.pi, args.time_resolution)          # time vector
+      self.φ0, self.θ0, self.ω0, self.dt = self.initialize_spinor(args)
+      self.I, self.i, self.j, self.k = self.cayley()                    # cayley matrices
+      self.πI, self.πi, self.πj, self.πk = self.lie_algebra()           # Lie algebra matrices
+      # 2) unitary - quaternion - rotor - surface
       self.U, self.U_label, cigar, pancake, args = self.select_unitary(args)
       self.surface = Bushings(args, cigar=cigar, pancake=pancake)
-      self.Q = self.unitary2quaternion(self.U)
+      self.Q = self.unitary2quaternion()
       self.rotor = self.quaternion2rotor(self.Q)
-      # 3) hopf coordinates from a random initial state
-      self.ω, self.θ, self.φ, self.dωdt, self.dθdt, self.dφdt, self.γ, self.ξ, self.H = self.quaternion2hopf()
+      # 3) spinor
+      self.Ψ, self.H, self.φ, self.θ, self.ω, self.dφdt, self.dθdt, self.dωdt = self.fill_spinor()
+      self.ν0, self.μ0, self.ν, self.μ, self.Ω, self.dνdt, self.dμdt, self.dΩdt = self.project_bundle(args)
       self.global_grid, self.mobius = self.get_global_grid(args)
-      self.r, self.drdθ, self.d2rdθ2, self.shape = self.surface.surface(self.θ, η=args.eta, λ=args.Lambda, nF=args.nF,
-                                                                        cigar=cigar, pancake=pancake, derivatives=True)
-      self.drdt = self.gradient0(self.r, dt)
+      self.r, self.drdμ, self.d2rdμ2, \
+      self.surface_shape = self.surface.surface(self.μ, cigar=cigar, pancake=pancake,
+                                                η=args.eta, λ=args.Lambda, nF=args.nF,
+                                                derivatives=True)
+      self.drdt = self.gradient0(self.r, self.dt)
       # 4) moving frames + parallel transport + the geometric phase
-      self.R, self.dRdθ, self.dRdφ, self.dRdt, self.d2Rdt2, self.d2Rdθ2, self.d2Rdθdφ, self.d2Rdφ2 = self.path_derivatives()
+      self.R, self.dRdμ, self.dRdν, self.dRdt, \
+      self.d2Rdt2, self.d2Rdμ2, self.d2Rdμdν, self.d2Rdν2 = self.path_derivatives()
       self.tangent, self.darboux, self.frenet = self.moving_frames()
-      self.pt_tangent, self.pt_darboux, self.pt_frenet, self.pt_tan_plane_vec = self.parallel_transport(args)
+      self.pt_tangent, self.pt_darboux, self.pt_frenet, self.pt_tan_plane_vec, \
+      self.γ, self.ξ = self.parallel_transport(args)
+
+
+  def project_bundle(self, args):
+      if args.projection=='random':
+          args.projection = random.choice(['i', 'j', 'k'])
+      if args.projection=='i':
+          Ri, Rj, Rk = self.Ψ[:, 0, 0], self.Ψ[:, 1, 0], self.Ψ[:, 2, 0]
+      elif args.projection == 'j':
+          Ri, Rj, Rk = self.Ψ[:, 0, 1], self.Ψ[:, 1, 1], self.Ψ[:, 2, 1]
+      elif args.projection == 'k':
+          Ri, Rj, Rk = self.Ψ[:, 0, 2], self.Ψ[:, 1, 2], self.Ψ[:, 2, 2]
+      Hi, Hj, Hk = self.H[:, 0], self.H[:, 1], self.H[:, 2]  # bloch vector
+      # hopf coordinates
+      dΩdt = (Hj * Rj + Hk * Rk) / (Rj ** 2 + Rk ** 2)
+      dμdt = (Hk * Rj - Hj * Rk) / np.sqrt(Rj ** 2 + Rk ** 2)
+      dνdt = dΩdt * Ri - Hi
+      μ0, ν0 = np.arccos(Ri[0]), np.arctan2(Rj[0], Rk[0])
+      if ν0 < 0:  ν0 = ν0 + 2 * np.pi                       # range is [0, 2 * np.pi]
+      Ω = np.cumsum(dΩdt * self.dt, axis=0) - dΩdt[0] * self.dt
+      μ = np.cumsum(dμdt * self.dt, axis=0) - dμdt[0] * self.dt + μ0
+      ν = np.cumsum(dνdt * self.dt, axis=0) - dνdt[0] * self.dt + ν0
+      # # check
+      # R1 = np.array([np.cos(μ), np.sin(μ) * np.sin(ν), np.sin(μ) * np.cos(ν)])
+      # R2 = R1 - np.array([Ri, Rj, Rk])
+      return ν0, μ0, ν, μ, Ω, dνdt, dμdt, dΩdt
+
+
+  def fill_spinor(self):
+      # HAMILTONIAN
+      # quaternion shorthand
+      a = self.Q[:, 0]
+      b = self.Q[:, 1]
+      c = self.Q[:, 2]
+      d = self.Q[:, 3]
+      # gradients
+      a_dt = self.gradient0(self.Q[:, 0], self.dt)
+      b_dt = self.gradient0(self.Q[:, 1], self.dt)
+      c_dt = self.gradient0(self.Q[:, 2], self.dt)
+      d_dt = self.gradient0(self.Q[:, 3], self.dt)
+      # hamiltonian
+      H = 2 * np.array([a * b_dt - a_dt * b - c_dt * d + c * d_dt,
+                        a * c_dt - a_dt * c + b_dt * d - b * d_dt,
+                        a * d_dt - a_dt * d - b_dt * c + b * c_dt]).T
+      # initial state
+      φ0, θ0, ω0 = self.φ0, self.θ0, self.ω0
+      # SPINOR
+      Ψ, Ψ0 = np.zeros(self.rotor.shape), np.zeros((3, 3))
+      Ψ0[0, 0], Ψ0[0, 1], Ψ0[0, 2] = np.cos(θ0), -np.sin(θ0) * np.sin(ω0), -np.sin(θ0) * np.cos(ω0)
+      Ψ0[1, 0], Ψ0[2, 0] = np.sin(θ0) * np.sin(φ0), np.sin(θ0) * np.cos(φ0)
+      Ψ0[1, 1] = np.cos(φ0) * np.cos(ω0) + np.sin(φ0) * np.cos(θ0) * np.sin(ω0)
+      Ψ0[2, 1] = -np.sin(φ0) * np.cos(ω0) + np.cos(φ0) * np.cos(θ0) * np.sin(ω0)
+      Ψ0[1, 2] = -np.cos(φ0) * np.sin(ω0) + np.sin(φ0) * np.cos(θ0) * np.cos(ω0)
+      Ψ0[2, 2] = np.sin(φ0) * np.sin(ω0) + np.cos(φ0) * np.cos(θ0) * np.cos(ω0)
+      # VALIDATE PROJECTIONS
+      Ψ1 = np.matmul(self.rotor, Ψ0).squeeze()
+      # BLOCH VECTOR
+      Ii, Ij, Ik, Hi, Hj, Hk = Ψ1[:, 0, 0], Ψ1[:, 1, 0], Ψ1[:, 2, 0], H[:, 0], H[:, 1], H[:, 2]  # bloch vector
+      # hopf coordinates
+      dωdt = (Hj * Ij + Hk * Ik) / (Ij ** 2 + Ik ** 2)
+      dθdt = (Hk * Ij - Hj * Ik) / np.sqrt(Ij ** 2 + Ik ** 2)
+      dφdt = dωdt * Ii - Hi
+      # extrinsic parameters
+      ω = np.cumsum(dωdt * self.dt, axis=0)  # omega
+      θ = np.cumsum(dθdt * self.dt, axis=0)  # theta
+      φ = np.cumsum(dφdt * self.dt, axis=0)  # phi
+      # as per initial state
+      φ = φ - φ[0] + φ0
+      θ = θ - θ[0] + θ0
+      ω = ω - ω[0] + ω0
+      # # time dependent
+      # Ψ[:, 0, 0], Ψ[:, 0, 1], Ψ[:, 0, 2] = np.cos(θ), -np.sin(θ) * np.sin(ω), -np.sin(θ) * np.cos(ω)
+      # Ψ[:, 1, 0], Ψ[:, 2, 0] = np.sin(θ) * np.sin(φ), np.sin(θ) * np.cos(φ)
+      # Ψ[:, 1, 1] = np.cos(φ) * np.cos(ω) + np.sin(φ) * np.cos(θ) * np.sin(ω)
+      # Ψ[:, 2, 1] = -np.sin(φ) * np.cos(ω) + np.cos(φ) * np.cos(θ) * np.sin(ω)
+      # Ψ[:, 1, 2] = -np.cos(φ) * np.sin(ω) + np.sin(φ) * np.cos(θ) * np.cos(ω)
+      # Ψ[:, 2, 2] = np.sin(φ) * np.sin(ω) + np.cos(φ) * np.cos(θ) * np.cos(ω)
+      return Ψ1, H, φ, θ, ω, dφdt, dθdt, dωdt
+
+
+  def initialize_spinor(self, args):
+      dt = self.t[1] - self.t[0]
+      if args.spinor_initial_state_deg is None:
+          φ0, θ0, ω0 = 2 * np.pi * np.random.rand(1), np.pi * np.random.rand(1), 2 * np.pi * np.random.rand(1)
+      else:
+          v = args.spinor_initial_state_deg
+          φ0, θ0, ω0 = v[0] * np.pi / 180, v[1] * np.pi / 180, v[2] * np.pi / 180
+      return φ0, θ0, ω0, dt
 
 
   def quaternion2hopf(self):
@@ -65,38 +157,39 @@ class Spinor:
       φ = φ - φ[0] + self.φ0
       # intrinsic parameters
       # S1 fibre bundle
-      dγdt = dφdt * B[:, 0]
-      dξdt = (H[:, 0] * B[:, 0] + H[:, 1] * B[:, 1] + H[:, 2] * B[:, 2])
+      dγdt = dφdt * np.cos(θ)
+      Rx, Ry, Rz = np.cos(θ), np.sin(θ) * np.sin(φ), np.sin(θ) * np.cos(φ)
+      dξdt = (H[:, 0] * Rx + H[:, 1] * Ry + H[:, 2] * Rz)
       γ = np.cumsum(dγdt * dt, axis=0) - dγdt[0] * dt  # geometric phase
       ξ = np.cumsum(dξdt * dt, axis=0) - dξdt[0] * dt  # dynamic phase
-      return ω, θ, φ, dωdt, dθdt, dφdt, γ, ξ, H#, Bloch
+      return ω, θ, φ, dωdt, dθdt, dφdt, γ, ξ, H #, Bloch
 
 
   def path_derivatives(self):
       # shorthand
-      r, drdθ, d2rdθ2, θ, φ, dθdt, dφdt = self.r, self.drdθ, self.d2rdθ2, self.θ, self.φ, self.dθdt, self.dφdt
+      r, drdμ, d2rdμ2, μ, ν, dμdt, dνdt = self.r, self.drdμ, self.d2rdμ2, self.μ, self.ν, self.dμdt, self.dνdt
       #################
       # path
-      R = np.array([r * np.cos(θ), r * np.sin(θ) * np.sin(φ), r * np.sin(θ) * np.cos(φ)])
+      R = np.array([r * np.cos(μ), r * np.sin(μ) * np.sin(ν), r * np.sin(μ) * np.cos(ν)])
       # first derivatives
-      dRdθ = np.array([drdθ * np.cos(θ) - r * np.sin(θ),
-                       (drdθ * np.sin(θ) + r * np.cos(θ)) * np.sin(φ),
-                       (drdθ * np.sin(θ) + r * np.cos(θ)) * np.cos(φ)])
-      dRdφ = np.array([np.zeros((len(r),)), r * np.sin(θ) * np.cos(φ), -r * np.sin(θ) * np.sin(φ)])
-      dRdt = dRdφ * dφdt + dRdθ * dθdt
+      dRdμ = np.array([drdμ * np.cos(μ) - r * np.sin(μ),
+                       (drdμ * np.sin(μ) + r * np.cos(μ)) * np.sin(ν),
+                       (drdμ * np.sin(μ) + r * np.cos(μ)) * np.cos(ν)])
+      dRdν = np.array([np.zeros((len(r),)), r * np.sin(μ) * np.cos(ν), -r * np.sin(μ) * np.sin(ν)])
+      dRdt = dRdν * dνdt + dRdμ * dμdt
       # second derivatives
-      d2Rdθ2 = np.array([d2rdθ2 * np.cos(θ) - 2 * drdθ * np.sin(θ) - r * np.cos(θ),
-                         (d2rdθ2 * np.sin(θ) + 2 * drdθ * np.cos(θ) - r * np.sin(θ)) * np.sin(φ),
-                         (d2rdθ2 * np.sin(θ) + 2 * drdθ * np.cos(θ) - r * np.sin(θ)) * np.cos(φ)])
-      d2Rdθdφ = np.array([np.zeros((len(r),)),
-                          (drdθ * np.sin(θ) + r * np.cos(θ)) * np.cos(φ),
-                          -(drdθ * np.sin(θ) + r * np.cos(θ)) * np.sin(φ)])
-      d2Rdφ2 = np.array([np.zeros((len(r),)), -r * np.sin(θ) * np.sin(φ), -r * np.sin(θ) * np.cos(φ)])
+      d2Rdμ2 = np.array([d2rdμ2 * np.cos(μ) - 2 * drdμ * np.sin(μ) - r * np.cos(μ),
+                         (d2rdμ2 * np.sin(μ) + 2 * drdμ * np.cos(μ) - r * np.sin(μ)) * np.sin(ν),
+                         (d2rdμ2 * np.sin(μ) + 2 * drdμ * np.cos(μ) - r * np.sin(μ)) * np.cos(ν)])
+      d2Rdμdν = np.array([np.zeros((len(r),)),
+                          (drdμ * np.sin(μ) + r * np.cos(μ)) * np.cos(ν),
+                          -(drdμ * np.sin(μ) + r * np.cos(μ)) * np.sin(ν)])
+      d2Rdν2 = np.array([np.zeros((len(r),)), -r * np.sin(μ) * np.sin(ν), -r * np.sin(μ) * np.cos(ν)])
       # in time
-      # d2θdt2, d2φdt2 = self.gradient0(dθdt, self.t[1] - self.t[0]), self.gradient0(dφdt, self.t[1] - self.t[0])
-      # d2Rdt2 = dRdφ * d2φdt2 + d2Rdφ2 * dφdt ** 2 + 2 * d2Rdθdφ * dθdt * dφdt + d2Rdθ2 * dθdt ** 2 + dRdθ * d2θdt2
+      # d2μdt2, d2νdt2 = self.gradient0(dμdt, self.t[1] - self.t[0]), self.gradient0(dνdt, self.t[1] - self.t[0])
+      # d2Rdt2 = dRdν * d2νdt2 + d2Rdν2 * dνdt ** 2 + 2 * d2Rdμdν * dμdt * dνdt + d2Rdμ2 * dμdt ** 2 + dRdμ * d2μdt2
       d2Rdt2 = self.gradient1(dRdt, self.t[1] - self.t[0])
-      return R, dRdθ, dRdφ, dRdt, d2Rdt2, d2Rdθ2, d2Rdθdφ, d2Rdφ2
+      return R, dRdμ, dRdν, dRdt, d2Rdt2, d2Rdμ2, d2Rdμdν, d2Rdν2
 
 
   def moving_frames(self):
@@ -106,38 +199,39 @@ class Spinor:
       darboux = np.zeros((3, 3, len(self.t)))
       frenet = np.zeros((3, 3, len(self.t)))
       # shorthand
-      r, drdθ, d2rdθ2 = self.r, self.drdθ, self.d2rdθ2
-      θ, φ, dθdt, dφdt = self.θ, self.φ, self.dθdt, self.dφdt
-      R, dRdθ, dRdφ, dRdt, d2Rdt2 = self.R, self.dRdθ, self.dRdφ, self.dRdt, self.d2Rdt2
+      r, drdμ, d2rdμ2 = self.r, self.drdμ, self.d2rdμ2
+      μ, ν, dμdt, dνdt = self.μ, self.ν, self.dμdt, self.dνdt
+      R, dRdμ, dRdν, dRdt, d2Rdt2 = self.R, self.dRdμ, self.dRdν, self.dRdt, self.d2Rdt2
       # normalization coefficients
-      nθ, nφ = np.sqrt(r ** 2 + drdθ ** 2), r * np.sin(θ)
-      nv = np.sqrt(nθ ** 2 * dθdt ** 2 + nφ ** 2 * dφdt ** 2)   # normalize velocity
+      nμ, nν = np.sqrt(r ** 2 + drdμ ** 2), r * np.sin(μ)
+      nv = np.sqrt(nμ ** 2 * dμdt ** 2 + nν ** 2 * dνdt ** 2)   # normalize velocity
       # na = np.sqrt(np.sum(d2Rdt2 ** 2, axis=0)) # normalize acceleration
       ################
       # BASIS VECTORS
       # azimuthal vector
-      eφ = np.array([np.zeros((len(φ))), np.cos(φ), -np.sin(φ)])
+      eν = np.array([np.zeros((len(ν))), np.cos(ν), -np.sin(ν)])
       # polar vector
-      eθ = np.array([drdθ * np.cos(θ) - r * np.sin(θ),
-                     (drdθ * np.sin(θ) + r * np.cos(θ)) * np.sin(φ),
-                     (drdθ * np.sin(θ) + r * np.cos(θ)) * np.cos(φ)]) / nθ
-      # surface normal: en = eφ x eθ
-      en = np.array([(drdθ * np.sin(θ) + r * np.cos(θ)),
-                     -(drdθ * np.cos(θ) - r * np.sin(θ)) * np.sin(φ),
-                     -(drdθ * np.cos(θ) - r * np.sin(θ)) * np.cos(φ)]) / nθ
+      eμ = np.array([drdμ * np.cos(μ) - r * np.sin(μ),
+                     (drdμ * np.sin(μ) + r * np.cos(μ)) * np.sin(ν),
+                     (drdμ * np.sin(μ) + r * np.cos(μ)) * np.cos(ν)]) / nμ
+      # surface normal: en = eν x eμ
+      en = np.array([(drdμ * np.sin(μ) + r * np.cos(μ)),
+                     -(drdμ * np.cos(μ) - r * np.sin(μ)) * np.sin(ν),
+                     -(drdμ * np.cos(μ) - r * np.sin(μ)) * np.cos(ν)]) / nμ
       # unit velocity: et = dRdt / nt
       ev = dRdt / nv
       # tangent normal: es = et x en
-      es = (nθ / (nφ * nv)) * dθdt * dRdφ - (nφ / (nθ * nv)) * dφdt * dRdθ
+      es = (nμ / (nν * nv)) * dμdt * dRdν - (nν / (nμ * nv)) * dνdt * dRdμ
       # center of force: ea = d2Rdt2 / na
       ea = self.gradient1(ev, dt) / np.sqrt(np.sum(self.gradient1(ev, dt) ** 2, axis=0))
       # binormal vector: eb = et x ea
       eb = np.cross(ev.T, ea.T).T
       ################
       # TANGENT FRAME: [azimuthal, polar, surface normal]
-      tangent[0, :, :] = eφ
-      tangent[1, :, :] = eθ
+      tangent[0, :, :] = eν
+      tangent[1, :, :] = eμ
       tangent[2, :, :] = en
+      ################
       # DARBOUX FRAME: [velocity, bi-normal, surface normal]
       darboux[0, :, :] = ev
       darboux[1, :, :] = es
@@ -147,7 +241,7 @@ class Spinor:
       frenet[0, :, :] = ev
       frenet[1, :, :] = ea
       frenet[2, :, :] = eb
-      #####################
+      ###############################
       return tangent, darboux, frenet
 
 
@@ -172,12 +266,10 @@ class Spinor:
           # time step
           dt = self.t[1] - self.t[0]
           # hamiltonians: differential basis
-          tangent_matrix, G = self.tangent2exponential_matrix(self.tangent, dt)
+          tangent_matrix, γ, ξ = self.tangent2exponential_matrix(self.tangent, dt, args)
           darboux_matrix = self.basis2exponential_matrix(self.darboux, dt)
           frenet_matrix = self.basis2exponential_matrix(self.frenet, dt)
-          # generalized geometric phase for surfaces of revolution
-          self.γ = -(np.cumsum(G[2, :] * dt, axis=0) - G[2, 0] * dt)
-          geometric_matrix = self.parallel_transport_geometric_phase()
+          geometric_matrix = self.rotor2d(γ)
           for idx in range(1, args.time_resolution):
               pt_tangent[idx, :] = np.matmul(tangent_matrix[:, :, idx], pt_tangent[idx - 1, :]).T
               pt_darboux[idx, :] = np.matmul(darboux_matrix[:, :, idx], pt_darboux[idx - 1, :]).T
@@ -193,15 +285,16 @@ class Spinor:
               pt_frenet[idx, :] = np.matmul(np.matmul(self.frenet[:, :, idx],
                                                       self.frenet[:, :, idx - 1].T), pt_frenet[idx - 1, :])
               pt_tan_plane_vec[idx, :] = np.matmul(np.matmul(self.tangent[:2, :, idx],
-                                                             self.tangent[:2, :, idx - 1].T), pt_tan_plane_vec[idx - 1, :])
-      return pt_tangent, pt_darboux, pt_frenet, pt_tan_plane_vec
+                                                             self.tangent[:2, :, idx - 1].T),
+                                                   pt_tan_plane_vec[idx - 1, :])
+      return pt_tangent, pt_darboux, pt_frenet, pt_tan_plane_vec, γ, ξ
 
 
-  def parallel_transport_geometric_phase(self):
-      # initialize
-      rotation_matrix = np.zeros((2, 2, len(self.γ)))
-      rotation_matrix[0, 0, :], rotation_matrix[0, 1, :] = np.cos(self.γ), -np.sin(self.γ)
-      rotation_matrix[1, 0, :], rotation_matrix[1, 1, :] = np.sin(self.γ), np.cos(self.γ)
+  @staticmethod
+  def rotor2d(γ):
+      rotation_matrix = np.zeros((2, 2, len(γ)))
+      rotation_matrix[0, 0, :], rotation_matrix[0, 1, :] = np.cos(γ), -np.sin(γ)
+      rotation_matrix[1, 0, :], rotation_matrix[1, 1, :] = np.sin(γ), np.cos(γ)
       return rotation_matrix
 
 
@@ -209,6 +302,7 @@ class Spinor:
       t = np.linspace(0, 2*np.pi, time_steps)
       dt = t[1] - t[0]
       dim = args.global_grid_size
+      # hamiltonian shorthand
       H = np.zeros((time_steps, 3))
       H[:, 0] = np.interp(t, self.t, self.H[:, 0])
       H[:, 1] = np.interp(t, self.t, self.H[:, 1])
@@ -218,38 +312,52 @@ class Spinor:
       b = np.interp(t, self.t, self.Q[:, 1])
       c = np.interp(t, self.t, self.Q[:, 2])
       d = np.interp(t, self.t, self.Q[:, 3])
+      # SO(3) rotor
+      rotor = self.quaternion2rotor(np.array([a, b, c, d]).T)
       # GLOBAL PHASE GRID:
       θ0, φ0 = np.meshgrid(np.linspace(0, np.pi, dim[0]), np.linspace(0, 2 * np.pi, dim[1]))
       θ0, φ0 = θ0.flatten(), φ0.flatten()
-      R0 = np.array([np.cos(θ0), np.sin(θ0) * np.sin(φ0), np.sin(θ0) * np.cos(φ0)]).T
+
+      # bloch vector
+      if args.projection=='i':
+          Ri, Rj, Rk = np.cos(θ0), np.sin(θ0) * np.sin(φ0), np.sin(θ0) * np.cos(φ0)
+      elif args.projection == 'j':
+          Ri = -np.sin(θ0) * np.sin(self.ω0)
+          Rj = np.cos(φ0) * np.cos(self.ω0) + np.sin(φ0) * np.cos(θ0) * np.sin(self.ω0)
+          Rk = -np.sin(φ0) * np.cos(self.ω0) + np.cos(φ0) * np.cos(θ0) * np.sin(self.ω0)
+      elif args.projection == 'k':
+          Ri = -np.sin(θ0) * np.cos(self.ω0)
+          Rj = -np.cos(φ0) * np.sin(self.ω0) + np.sin(φ0) * np.cos(θ0) * np.cos(self.ω0)
+          Rk = np.sin(φ0) * np.sin(self.ω0) + np.cos(φ0) * np.cos(θ0) * np.cos(self.ω0)
+      R0 = np.array([Ri, Rj, Rk]).T
       # evolve the state
-      R1 = np.matmul(self.quaternion2rotor(np.array([a,b,c,d]).T), R0.T)  # evolve the bloch vector
+      R1 = np.matmul(rotor, R0.T)  # evolve the bloch vector
       np.seterr(divide='ignore', invalid='ignore')  # suppress divide by 0 warning
-      OMEGA = (H[:, 1].reshape(len(H[:, 1]), 1) * R1[:, 1, :] + H[:, 2].reshape(len(H[:, 1]), 1) * R1[:, 2, :]) / (
-                  R1[:, 1, :] ** 2 + R1[:, 2, :] ** 2)
-      O = np.sum(OMEGA * dt, axis=0)
-      global_grid = O.reshape(dim[0], dim[1])
+      Hj, Hk, Rj, Rk = H[:, 1].reshape(len(H[:, 1]), 1), H[:, 2].reshape(len(H[:, 1]), 1), R1[:, 1, :], R1[:, 2, :]
+      OMEGA = (Hj * Rj + Hk * Rk) / (Rj ** 2 + Rk ** 2)
+      # global grid
+      global_grid = np.sum(OMEGA * dt, axis=0).reshape(dim[0], dim[1])
       global_grid[:, 0], global_grid[:, -1] = np.nan, np.nan  # global_grid[0, :], global_grid[-1, :] = np.nan, np.nan
       global_grid = global_grid / np.pi
       # MOBIUS band
-      ω1 = np.interp(np.linspace(0, 2 * np.pi, n_pts), self.t, self.ω)  # global phase
+      Ω1 = np.interp(np.linspace(0, 2 * np.pi, n_pts), self.t, self.Ω)  # global phase
       t1 = np.linspace(0, 2 * np.pi, n_pts)  # time
       p1 = np.linspace(-1, 1, int(args.display_frames / 4))  # band
-      ω2, p2 = np.meshgrid(ω1, p1)
+      Ω2, p2 = np.meshgrid(Ω1, p1)
       t2, _ = np.meshgrid(t1, p1)
-      ω2, p2, t2 = ω2.ravel(), p2.ravel(), t2.ravel()
+      Ω2, p2, t2 = Ω2.ravel(), p2.ravel(), t2.ravel()
       # delaunay
-      x = (1 + 0.25 * p2 * np.cos(ω2 / 2)) * np.cos(t2)
-      y = (1 + 0.25 * p2 * np.cos(ω2 / 2)) * np.sin(t2)
-      z = p2 * np.sin(ω2 / 2)
+      x = (1 + 0.25 * p2 * np.cos(Ω2 / 2)) * np.cos(t2)
+      y = (1 + 0.25 * p2 * np.cos(Ω2 / 2)) * np.sin(t2)
+      z = p2 * np.sin(Ω2 / 2)
       tri = Triangulation(np.ravel(t2), np.ravel(p2))
       # MOBIUS arrow
-      arrow_start = np.array([(1 + 0.25 * p1[0] * np.cos(ω1 / 2)) * np.cos(t1),
-                              (1 + 0.25 * p1[0] * np.cos(ω1 / 2)) * np.sin(t1),
-                              p1[0] * np.sin(ω1 / 2)])
-      arrow_end = np.array([(1 + 0.25 * p1[-1] * np.cos(ω1 / 2)) * np.cos(t1),
-                            (1 + 0.25 * p1[-1] * np.cos(ω1 / 2)) * np.sin(t1),
-                            p1[-1] * np.sin(ω1 / 2)])
+      arrow_start = np.array([(1 + 0.25 * p1[0] * np.cos(Ω1 / 2)) * np.cos(t1),
+                              (1 + 0.25 * p1[0] * np.cos(Ω1 / 2)) * np.sin(t1),
+                              p1[0] * np.sin(Ω1 / 2)])
+      arrow_end = np.array([(1 + 0.25 * p1[-1] * np.cos(Ω1 / 2)) * np.cos(t1),
+                            (1 + 0.25 * p1[-1] * np.cos(Ω1 / 2)) * np.sin(t1),
+                            p1[-1] * np.sin(Ω1 / 2)])
       t_full = np.linspace(0, 2 * np.pi, args.display_frames)
       t_part = np.linspace(0, 2 * np.pi, n_pts)
       start_x = np.interp(t_full, t_part, arrow_start[0, :])
@@ -266,7 +374,7 @@ class Spinor:
       # select surface
       cigar, pancake = self.select_bushings(args)
       # select moving frame
-      if args.moving_frame is "random":
+      if args.moving_frame is 'random':
           args.moving_frame = random.choice(['TANGENT', 'DARBOUX', 'FRENET SERRET', 'GEOMETRIC PHASE'])
       # select unitary
       if args.select_unitary == 'random':
@@ -287,11 +395,11 @@ class Spinor:
                                                                                       self.expmatrix(-self.t,
                                                                                                      self.i)))))
       elif U_label == 'x_axis':
-          U = self.expmatrix(-self.t/2, self.i)
+          U = self.expmatrix(self.t/2, self.i)
       elif U_label == 'y_axis':
-          U = self.expmatrix(-self.t/2, self.j)
+          U = self.expmatrix(self.t/2, self.j)
       elif U_label == 'z_axis':
-          U = self.expmatrix(-self.t/2, self.k)
+          U = self.expmatrix(self.t/2, self.k)
       else:  # U_label == 'equation (30)':
           U = np.matmul(self.expmatrix(self.t / 2, self.i), self.expmatrix(self.t / 2, self.j))
       return U, U_label, cigar, pancake, args #np.swapaxes(U,1,2)
@@ -323,35 +431,55 @@ class Spinor:
       e1 = basis[1, :, :]
       e2 = basis[2, :, :]
       # skew vector
-      hz = np.sum(self.gradient1(e0, dt) * e1, axis=0)
-      hy = np.sum(self.gradient1(e2, dt) * e0, axis=0)
-      hx = np.sum(self.gradient1(e1, dt) * e2, axis=0)
+      hz = np.sum(self.gradient1(e1, dt) * e0, axis=0)
+      hy = np.sum(self.gradient1(e0, dt) * e2, axis=0)
+      hx = np.sum(self.gradient1(e2, dt) * e1, axis=0)
       # fill operator
       operator[0, 1, :], operator[1, 0, :] = -hz, hz
       operator[0, 2, :], operator[2, 0, :] = hy, -hy
       operator[1, 2, :], operator[2, 1, :] = -hx, hx
-      return self.exponential_matrix(-operator*dt)
+      return self.exponential_matrix(operator*dt)
 
 
-  def tangent2exponential_matrix(self, basis, dt):
+  def tangent2exponential_matrix(self, basis, dt, args):
       operator = np.zeros(basis.shape)
+      nμ = np.sqrt(self.r ** 2 + self.drdμ ** 2)
       # operator elements
-      hz = -(self.drdθ * np.sin(self.θ) + self.r * np.cos(self.θ)) * self.dφdt / np.sqrt(self.r ** 2 + self.drdθ ** 2)
-      hy = -(self.drdθ * np.cos(self.θ) - self.r * np.sin(self.θ)) * self.dφdt / np.sqrt(self.r ** 2 + self.drdθ ** 2)
-      hx = -(self.r ** 2 + 2 * self.drdθ ** 2 - self.r * self.d2rdθ2) * self.dθdt / (self.r ** 2 + self.drdθ ** 2)
+      Aν = (self.r ** 2 + 2 * self.drdμ ** 2 - self.r * self.d2rdμ2) * self.dμdt / nμ ** 2
+      Aμ = (self.drdμ * np.cos(self.μ) - self.r * np.sin(self.μ)) * self.dνdt / nμ
+      An = (self.drdμ * np.sin(self.μ) + self.r * np.cos(self.μ)) * self.dνdt / nμ
       # fill operator
-      operator[0, 1, :], operator[1, 0, :] = -hz, hz
-      operator[0, 2, :], operator[2, 0, :] = hy, -hy
-      operator[1, 2, :], operator[2, 1, :] = -hx, hx
-      return self.exponential_matrix(-operator*dt), np.array([hx,hy,hz])
+      operator[0, 1, :], operator[1, 0, :] = -An, An
+      operator[0, 2, :], operator[2, 0, :] = Aμ, -Aμ
+      operator[1, 2, :], operator[2, 1, :] = -Aν, Aν
+      # bloch vector
+      if args.projection=='i':
+          Ri, Rj, Rk = self.Ψ[:, 0, 0], self.Ψ[:, 1, 0], self.Ψ[:, 2, 0]
+      elif args.projection == 'j':
+          Ri, Rj, Rk = self.Ψ[:, 0, 1], self.Ψ[:, 1, 1], self.Ψ[:, 2, 1]
+      elif args.projection == 'k':
+          Ri, Rj, Rk = self.Ψ[:, 0, 2], self.Ψ[:, 1, 2], self.Ψ[:, 2, 2]
+      # hamiltonian
+      Hi, Hj, Hk = self.H[:, 0], self.H[:, 1], self.H[:, 2]
+      # dynamic phase
+      # dEdt = nμ
+      if args.heuristic_dynamic_phase is True:
+          dξdt = ((self.r / nμ) * (Hi * Ri + Hj * Rj + Hk * Rk) + (Hi / nμ) * self.drdμ * np.sin(self.μ)
+                  + (nμ - self.r - Ri * self.drdμ * np.sin(self.μ)) * (self.dΩdt / nμ))
+      else:
+          dξdt = Hi * Ri + Hj * Rj + Hk * Rk
+      ξ = (np.cumsum(dξdt * self.dt, axis=0) - dξdt[0] * self.dt)
+      # geometric phase of a tangent vector to a surface of revolution
+      γ = (np.cumsum(An * dt, axis=0) - An[0] * dt)
+      return self.exponential_matrix(operator*dt), γ, ξ
 
 
-  @staticmethod
-  def unitary2quaternion(U, cayley_basis='left'):
+
+  def unitary2quaternion(self, cayley_basis='left'):
       if cayley_basis == 'left':
-          q = U[:, :, 0]
+          q = self.U[:, :, 0]
       else:  # 'right'
-          q = U[:, 0, :]
+          q = self.U[:, 0, :]
       return q
 
   @staticmethod
@@ -394,13 +522,13 @@ class Spinor:
   def select_bushings(args):
       if args.sphere is True:
           return False, False
-      if np.random.rand(1) < 0.5:
+      elif np.random.rand(1) < 0.5:
           return True, False
       else:
           return False, True
 
   @staticmethod
-  def cayley(args, cayley_basis='left'):
+  def cayley(cayley_basis='left'):
       I = np.array([[1, 0, 0, 0],
                     [0, 1, 0, 0],
                     [0, 0, 1, 0],
@@ -431,4 +559,20 @@ class Spinor:
                         [0, 0, -1, 0],
                         [0, 1, 0, 0],
                         [-1, 0, 0, 0]])
+      return I, i, j, k
+
+  @staticmethod
+  def lie_algebra():
+      I = np.array([[1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1]])
+      k = np.array([[0,-1, 0],
+                    [1, 0, 0],
+                    [0, 0, 0]])
+      j = np.array([[0, 0,-1],
+                    [0, 0, 0],
+                    [1, 0, 0]])
+      i = np.array([[0, 0, 0],
+                    [0, 0,-1],
+                    [0, 1, 0]])
       return I, i, j, k
