@@ -152,7 +152,7 @@ class Spinor:
       θ = np.cumsum(dθdt * dt, axis=0) # polar angle
       φ = np.cumsum(dφdt * dt, axis=0) # azimuthal angle
       # initialize
-      ω = ω - ω[0]
+      ω = ω - ω[0] + self.ω0
       θ = θ - θ[0] + self.θ0
       φ = φ - φ[0] + self.φ0
       # intrinsic parameters
