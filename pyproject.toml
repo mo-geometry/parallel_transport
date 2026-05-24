@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "parallel-transport"
+version = "0.1.0"
+description = "Interactive visualisation of parallel transport, quaternion geometry, and fibre bundles on S2."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Brian O'Sullivan", email = "bmw.osullivan@gmail.com" },
+]
+dependencies = [
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+qt = [
+    "PyQt5>=5.15",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parallel_transport"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "gpu: marks tests requiring a GPU/display context",
+    "slow: marks tests as slow-running",
+]
+addopts = "--cov=parallel_transport --cov-report=term-missing --no-header -q"
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "TCH"]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = true
+packages = ["parallel_transport"]
+mypy_path = "src"

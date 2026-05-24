@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+vscode-settings.json
+
+# Project planning & strategy (private)
+CLAUDE.md
+CONTRIBUTING.md
+TODO.md
+ROADMAP.md
+NOTES.md
+docs/planning/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Qt Designer backup files
+*.ui.bak
