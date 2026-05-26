@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from parallel_transport.core.quaternion import (
     conjugate,
     from_axis_angle,

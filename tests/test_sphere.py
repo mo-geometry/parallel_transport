@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from parallel_transport.geometry.sphere import (
     SphereMesh,
     arc_between,

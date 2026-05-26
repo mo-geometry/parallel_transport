@@ -48,6 +48,9 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "TCH"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["parallel_transport"]
+
 [tool.mypy]
 strict = true
 warn_unused_ignores = true
